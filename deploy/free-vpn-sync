@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+cd /opt/free-vpn-bot
+exec /opt/free-vpn-bot/.venv/bin/python -m free_vpn_bot.sync_xray

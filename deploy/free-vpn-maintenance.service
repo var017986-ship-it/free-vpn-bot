@@ -1,0 +1,17 @@
+[Unit]
+Description=Free VLESS VPN expiry and traffic accounting
+After=free-vpn-xray.service
+
+[Service]
+Type=oneshot
+User=freevpn
+Group=freevpn
+WorkingDirectory=/opt/free-vpn-bot
+EnvironmentFile=/etc/free-vpn-bot/bot.env
+StateDirectory=free-vpn-bot
+StateDirectoryMode=0750
+ExecStart=/opt/free-vpn-bot/.venv/bin/python -m free_vpn_bot.maintenance
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/free-vpn-bot /etc/free-vpn-bot

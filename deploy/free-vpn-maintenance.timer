@@ -1,0 +1,11 @@
+[Unit]
+Description=Run free VPN accounting every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+Unit=free-vpn-maintenance.service
+
+[Install]
+WantedBy=timers.target

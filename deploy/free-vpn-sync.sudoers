@@ -1,0 +1,3 @@
+# Install as /etc/sudoers.d/free-vpn-sync with mode 0440.
+# The freevpn service may regenerate and restart only its own Xray unit.
+freevpn ALL=(root) NOPASSWD: /usr/local/bin/free-vpn-sync

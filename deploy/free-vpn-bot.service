@@ -1,0 +1,23 @@
+[Unit]
+Description=Free VLESS VPN Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freevpn
+Group=freevpn
+WorkingDirectory=/opt/free-vpn-bot
+EnvironmentFile=/etc/free-vpn-bot/bot.env
+StateDirectory=free-vpn-bot
+StateDirectoryMode=0750
+ExecStart=/opt/free-vpn-bot/.venv/bin/python -m free_vpn_bot.bot
+Restart=always
+RestartSec=5
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/free-vpn-bot /etc/free-vpn-bot
+
+[Install]
+WantedBy=multi-user.target
