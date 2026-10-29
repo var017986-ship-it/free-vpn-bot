@@ -185,6 +185,17 @@ class Database:
         with self.session() as conn:
             return conn.execute("SELECT 1 FROM users WHERE telegram_id=? AND blocked_at IS NULL", (telegram_id,)).fetchone() is not None
 
+    def mtg_secret(self, telegram_id: int, hostname: str) -> str:
+        """Return a stable, per-user FakeTLS secret for the configured domain."""
+        digest = hmac.new(self.captcha_secret, f"mtg:{telegram_id}".encode("utf-8"), hashlib.sha256).digest()[:16]
+        host = hostname.encode("utf-8")
+        return "ee" + digest.hex() + host.hex()
+
+    def active_mtg_secrets(self, hostname: str) -> list[tuple[int, str]]:
+        with self.session() as conn:
+            rows = conn.execute("SELECT telegram_id FROM users WHERE blocked_at IS NULL ORDER BY telegram_id").fetchall()
+            return [(row["telegram_id"], self.mtg_secret(row["telegram_id"], hostname)) for row in rows]
+
     def activate(self, telegram_id: int, plan_code: str) -> tuple[dict, list[dict]]:
         plan = get_plan(plan_code)
         now = int(time.time())

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 import shlex
 import subprocess
@@ -51,6 +52,16 @@ class App:
             logger.error("Xray sync failed: %s", result.stderr[-300:])
             raise RuntimeError("Не удалось применить конфиги на VPN-сервере")
 
+    def sync_mtg(self) -> None:
+        secrets = self.database.active_mtg_secrets(self.settings.mtg_domain)
+        payload = json.dumps({"secrets": [{"user": str(user_id), "secret": secret} for user_id, secret in secrets]})
+        result = subprocess.run(
+            shlex.split(self.settings.mtg_sync_command), input=payload, text=True,
+            capture_output=True, timeout=90, check=False,
+        )
+        if result.returncode:
+            logger.error("FakeTLS proxy sync failed: %s", result.stderr[-300:])
+            raise RuntimeError("Не удалось обновить FakeTLS-прокси")
 
 def human_bytes(value: int) -> str:
     if value < 1024 * 1024:
@@ -70,6 +81,8 @@ def main_menu(settings: Settings) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🎁 Бесплатный VPN", callback_data="plan:free")],
         [InlineKeyboardButton(text="👨‍👩‍👧‍👦 Семейный VPN", callback_data="plan:family")],
         [InlineKeyboardButton(text="🔗 Моя подписка", callback_data="menu:configs")],
+        [InlineKeyboardButton(text="✈️ Получить прокси Telegram", callback_data="menu:proxy")],
+        [InlineKeyboardButton(text="🛡️ Telegram FakeTLS", callback_data="menu:mtg")],
         [InlineKeyboardButton(text="ℹ️ Подключение", callback_data="menu:guide")],
         [InlineKeyboardButton(text="🆘 Поддержка", url=settings.support_url)],
     ])
@@ -241,6 +254,60 @@ def make_router(app: App) -> Router:
             "VLESS-ссылки ниже подходят для ручного импорта одного устройства."
         )
 
+    @router.callback_query(F.data == "menu:proxy")
+    async def mtproto_proxy(callback: CallbackQuery) -> None:
+        if not callback.from_user or not callback.message:
+            return
+        if not app.settings.mtproto_host:
+            await callback.answer("Прокси временно недоступен", show_alert=True)
+            return
+        if not await asyncio.to_thread(app.database.is_verified, callback.from_user.id):
+            await callback.answer("Сначала пройдите проверку", show_alert=True)
+            return
+        if not app.settings.mtproto_secret:
+            await callback.answer("Прокси временно недоступен", show_alert=True)
+            return
+        url = (
+            "https://t.me/proxy?server="
+            f"{app.settings.mtproto_host}&port={app.settings.mtproto_port}&secret={app.settings.mtproto_secret}"
+        )
+        await callback.answer()
+        await callback.message.answer(
+            "<b>Ваш Telegram-прокси</b>\n\n"
+            "Нажмите кнопку ниже, чтобы добавить прокси в Telegram.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="✈️ Подключить прокси", url=url),
+            ]]),
+        )
+
+    @router.callback_query(F.data == "menu:mtg")
+    async def mtg_proxy(callback: CallbackQuery) -> None:
+        if not callback.from_user or not callback.message:
+            return
+        if not app.settings.mtg_host or not app.settings.mtg_sync_command:
+            await callback.answer("FakeTLS-прокси временно недоступен", show_alert=True)
+            return
+        if not await asyncio.to_thread(app.database.is_verified, callback.from_user.id):
+            await callback.answer("Сначала пройдите проверку", show_alert=True)
+            return
+        try:
+            await asyncio.to_thread(app.sync_mtg)
+        except RuntimeError as exc:
+            await callback.answer(str(exc), show_alert=True)
+            return
+        secret = await asyncio.to_thread(
+            app.database.mtg_secret, callback.from_user.id, app.settings.mtg_domain
+        )
+        url = f"https://t.me/proxy?server={app.settings.mtg_host}&port={app.settings.mtg_port}&secret={secret}"
+        await callback.answer()
+        await callback.message.answer(
+            "<b>Персональный Telegram FakeTLS-прокси</b>\n\n"
+            "Если подключение долго проверяется, используйте обычную кнопку прокси как резерв.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🛡️ Подключить FakeTLS", url=url),
+            ]]),
+        )
+
     @router.message(Command("admin"))
     async def admin(message: Message) -> None:
         if not message.from_user or not app.is_admin(message.from_user.id):
@@ -290,6 +357,8 @@ def make_router(app: App) -> Router:
             target = int((message.text or "").strip())
             revoked = await asyncio.to_thread(app.database.revoke_user, target)
             await asyncio.to_thread(app.sync_profiles)
+            if app.settings.mtg_sync_command:
+                await asyncio.to_thread(app.sync_mtg)
         except (ValueError, UnknownUser, RuntimeError) as exc:
             await message.answer(f"Не удалось заблокировать: {html.escape(str(exc))}")
             return

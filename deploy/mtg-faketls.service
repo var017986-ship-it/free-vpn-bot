@@ -1,0 +1,21 @@
+[Unit]
+Description=Per-user Telegram FakeTLS MTProxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freevpn
+Group=freevpn
+ExecStart=/usr/local/bin/mtg-multi run /etc/free-vpn-bot/mtg-multi.toml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

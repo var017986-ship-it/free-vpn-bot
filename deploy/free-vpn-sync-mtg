@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+CONFIG=/etc/free-vpn-bot/mtg-multi.toml
+TMP=$(mktemp /etc/free-vpn-bot/mtg-multi.toml.XXXXXX)
+PAYLOAD=$(mktemp /etc/free-vpn-bot/mtg-users.XXXXXX)
+trap 'rm -f "$TMP" "$PAYLOAD"' EXIT
+cat > "$PAYLOAD"
+
+MTG_PORT=9445 python3 -c '
+import json
+import os
+import re
+import sys
+
+quote = chr(34)
+payload = json.load(open(sys.argv[1], encoding="utf-8"))
+port = os.environ["MTG_PORT"]
+if not port.isdigit():
+    raise SystemExit("Invalid MTG listen port")
+print("bind-to = " + quote + "0.0.0.0:" + port + quote)
+print("public-ipv4 = " + quote + "9.247.112.11" + quote)
+print("prefer-ip = " + quote + "only-ipv4" + quote)
+print("auto-update = true")
+print("dns = " + quote + "https://1.1.1.1" + quote)
+print("[domain-fronting]")
+print("port = 443")
+print("[stats.prometheus]")
+print("enabled = false")
+print("[secrets]")
+for entry in payload["secrets"]:
+    user = str(entry["user"])
+    secret = str(entry["secret"])
+    if not user.isdigit() or not re.fullmatch(r"ee[0-9a-f]+", secret):
+        raise SystemExit("Invalid MTG account or FakeTLS secret")
+    print(user + " = " + quote + secret + quote)
+if not payload["secrets"]:
+    print("bootstrap = " + quote + "eeec3ace5914851b5df6979d77be8ff8ba7777772e6d6963726f736f66742e636f6d" + quote)
+' "$PAYLOAD" > "$TMP"
+
+DOCTOR=$(mktemp /etc/free-vpn-bot/mtg-doctor.XXXXXX)
+if /usr/local/bin/mtg-multi doctor "$TMP" >"$DOCTOR" 2>&1; then
+    :
+elif grep -q 'invalid config' "$DOCTOR"; then
+    cat "$DOCTOR" >&2
+    rm -f "$DOCTOR"
+    exit 1
+fi
+rm -f "$DOCTOR"
+chown root:freevpn "$TMP"
+chmod 0640 "$TMP"
+mv -f "$TMP" "$CONFIG"
+if systemctl is-active --quiet mtg-faketls.service; then
+    systemctl kill --signal=HUP mtg-faketls.service
+else
+    systemctl start mtg-faketls.service
+fi
+sleep 1

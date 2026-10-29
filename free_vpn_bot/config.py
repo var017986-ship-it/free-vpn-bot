@@ -33,6 +33,14 @@ class Settings:
     captcha_secret: str
     support_url: str
     subscription_base_url: str
+    mtg_host: str = ""
+    mtg_port: int = 9445
+    mtg_domain: str = "www.microsoft.com"
+    mtg_sync_command: str = ""
+    mtproto_host: str = ""
+    mtproto_port: int = 8444
+    mtproto_sync_command: str = ""
+    mtproto_secret: str = ""
 
     @property
     def is_complete_for_bot(self) -> bool:
@@ -58,4 +66,12 @@ def get_settings() -> Settings:
         captcha_secret=os.environ.get("CAPTCHA_SECRET", "").strip(),
         support_url=os.environ.get("SUPPORT_URL", "https://t.me/VPNsupportF").strip(),
         subscription_base_url=os.environ.get("SUBSCRIPTION_BASE_URL", "").strip().rstrip("/"),
+        mtg_host=os.environ.get("MTG_HOST", "").strip(),
+        mtg_port=int(os.environ.get("MTG_PORT", "9445")),
+        mtg_domain=os.environ.get("MTG_DOMAIN", "www.microsoft.com").strip(),
+        mtg_sync_command=os.environ.get("MTG_SYNC_COMMAND", "").strip(),
+        mtproto_host=os.environ.get("MTPROTO_HOST", "").strip(),
+        mtproto_port=int(os.environ.get("MTPROTO_PORT", "8444")),
+        mtproto_sync_command=os.environ.get("MTPROTO_SYNC_COMMAND", "").strip(),
+        mtproto_secret=os.environ.get("MTPROTO_SECRET", "").strip(),
     )

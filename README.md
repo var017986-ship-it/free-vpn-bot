@@ -20,6 +20,7 @@ This repository contains **only the free VPN bot**. It has no payments, paid pla
 - Reads per-profile upload/download counters from the local Xray API every five minutes.
 - Removes access automatically on expiry, quota exhaustion or administrator block.
 - Includes admin actions for statistics, plan summary, blocking and Telegram broadcasts.
+- Optionally provides per-user Telegram FakeTLS proxy links, revocable by blocking the account.
 
 ## Free Plans
 
@@ -58,6 +59,7 @@ requirements.txt    Python dependencies
 - Python 3.11 or newer.
 - Xray installed at `/usr/local/bin/xray` or another path set in `XRAY_BINARY`.
 - Nginx and a valid TLS certificate for the subscription domain.
+- Optional: the pinned `mtg-multi` v1.13.0 binary for the FakeTLS feature.
 - A Telegram bot token from [@BotFather](https://t.me/BotFather).
 - A non-root service account named `freevpn` and an Xray service account/group named `xray`.
 
@@ -153,6 +155,16 @@ The commands below use Ubuntu/Debian-style paths. Review and adapt them before r
 | `XRAY_API_SERVER` | No | Local Xray stats API, default: `127.0.0.1:10085` |
 | `SYNC_COMMAND` | No | Command the bot runs after access changes |
 | `SUPPORT_URL` | No | HTTPS Telegram support URL |
+| `MTG_HOST` | No | Public hostname or IPv4 for the optional FakeTLS proxy |
+| `MTG_PORT` | No | FakeTLS listener port, default `9445` |
+| `MTG_DOMAIN` | No | FakeTLS SNI hostname, default `www.microsoft.com` |
+| `MTG_SYNC_COMMAND` | No | Restricted root helper that reloads active per-user secrets |
+
+### Optional Telegram FakeTLS proxy
+
+The main menu includes a separate **Telegram FakeTLS** button when `MTG_HOST` and `MTG_SYNC_COMMAND` are configured. It creates an `ee` FakeTLS secret derived per verified user, updates the MTG multi-secret configuration, and returns a Telegram proxy link. Blocking an account removes its secret on the next sync. This feature is separate from VLESS and the regular MTProxy fallback. FakeTLS availability depends on the network and fronting hostname; a working TCP port alone does not prove the Telegram handshake works.
+
+Deployment templates and the design/operational notes are in [`deploy/`](deploy/) and [`docs/FAKETLS.md`](docs/FAKETLS.md). Install a pinned `mtg-multi` release, configure `/etc/free-vpn-bot/bot.env`, allow only the fixed sync helper through sudo, install `deploy/mtg-faketls.service`, then open the selected TCP port in the host firewall.
 
 ## Privacy and Logs
 

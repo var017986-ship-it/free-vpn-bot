@@ -1,0 +1,2 @@
+# Install as /etc/sudoers.d/free-vpn-sync-mtg with mode 0440.
+freevpn ALL=(root) NOPASSWD: /usr/local/bin/free-vpn-sync-mtg
